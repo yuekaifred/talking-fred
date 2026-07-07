@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>talking</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stage-wrap {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stage {
+      position: relative;
+      aspect-ratio: 9 / 16;
+      width: 100%;
+      max-width: calc(100vh * 9 / 16);
+      max-height: 100vh;
+    }
+
+    .stage-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .stage-layer.layer-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .hitbox {
+      position: absolute;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #hitbox-wake {
+      top: 20%;
+      left: 30%;
+      width: 40%;
+      height: 70%;
+    }
+
+    #hitbox-left-hand {
+      top: 32%;
+      left: 60%;
+      width: 14%;
+      height: 20%;
+    }
+
+    #hitbox-right-hand {
+      top: 32%;
+      left: 30%;
+      width: 14%;
+      height: 20%;
+    }
+
+    #hitbox-left-leg {
+      top: 60%;
+      left: 60%;
+      width: 14%;
+      height: 32%;
+    }
+
+    #hitbox-right-leg {
+      top: 60%;
+      left: 24%;
+      width: 14%;
+      height: 32%;
+    }
+
+    #hitbox-gut {
+      top: 40%;
+      left: 40%;
+      width: 20%;
+      height: 20%;
+    }
+
+    #hitbox-head {
+      top: 18%;
+      left: 44%;
+      width: 14%;
+      height: 14%;
+    }
+
+    .button-row {
+      position: absolute;
+      top: 82%;
+      left: 0;
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      justify-items: center;
+      align-items: center;
+    }
+
+    .icon-btn {
+      width: 55%;
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      border: none;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    .icon-btn img {
+      max-width: 68%;
+      max-height: 68%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+    }
+
+    .icon-btn.phone {
+      background: #11d708;
+    }
+
+    .icon-btn:disabled {
+      cursor: default;
+    }
+
+    .icon-btn:active:not(:disabled) {
+      transform: scale(0.94);
+    }
+
+    .icon-btn.hidden {
+      display: none;
+    }
+
+    .hitbox.disabled {
+      pointer-events: none;
+    }
+
+    .pre-wake-text {
+      position: absolute;
+      top: 6%;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      pointer-events: none;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    }
+
+    .pre-wake-text .title {
+      font-size: 8vmin;
+      font-weight: bold;
+    }
+
+    .pre-wake-text .subtitle {
+      font-size: 4vmin;
+      margin-top: 0.3em;
+    }
+
+    .pre-wake-text.hidden {
+      display: none;
+    }
+
+    .mic-warning {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      background: #b00020;
+      color: #fff;
+      font: bold 14px sans-serif;
+      text-align: center;
+      padding: 6px;
+    }
+
+    .mic-meter {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 10;
+      width: 100px;
+      height: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    .mic-meter-fill {
+      height: 100%;
+      width: 0%;
+      background: #4caf50;
+      transition: width 60ms linear, background-color 100ms linear;
+    }
+
+    .mic-meter-fill.speaking {
+      background: #ff5252;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="mic-warning" class="mic-warning hidden">microphone not detected!</div>
+  <div id="mic-meter" class="mic-meter hidden">
+    <div id="mic-meter-fill" class="mic-meter-fill"></div>
+  </div>
+  <div class="stage-wrap">
+    <div class="stage">
+      <!-- need image first because ios wont render video immediately -->
+      <img id="idle-frame" class="stage-layer" src="assets/01-poster.jpg" alt="">
+      <video id="player-a" class="stage-layer layer-hidden" playsinline muted preload="auto"></video>
+      <video id="player-b" class="stage-layer layer-hidden" playsinline muted preload="auto"></video>
+
+      <div id="pre-wake-text" class="pre-wake-text">
+        <div class="title">Talking Fred</div>
+        <div class="subtitle">Click on me!</div>
+      </div>
+
+      <div id="hitbox-wake" class="hitbox" data-action="wake"></div>
+      <div id="hitbox-left-hand" class="hitbox" data-action="left-hand"></div>
+      <div id="hitbox-right-hand" class="hitbox" data-action="right-hand"></div>
+      <div id="hitbox-left-leg" class="hitbox" data-action="left-leg"></div>
+      <div id="hitbox-right-leg" class="hitbox" data-action="right-leg"></div>
+      <div id="hitbox-gut" class="hitbox" data-action="gut"></div>
+      <div id="hitbox-head" class="hitbox" data-action="head"></div>
+
+      <div class="button-row">
+        <button id="btn-drink" class="icon-btn" data-action="drink"><img src="assets/drink.png" alt="drink"></button>
+        <button id="btn-food" class="icon-btn" data-action="food"><img src="assets/food.png" alt="food"></button>
+        <button id="btn-burp" class="icon-btn" data-action="burp"><img src="assets/burp.png" alt="burp"></button>
+        <button id="btn-phone" class="icon-btn phone" data-action="phone"><img src="assets/phone.png"
+            alt="phone"></button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="ambience" src="assets/ambience.mp3" loop></audio>
+
+  <script>
+    let activePlayer = document.getElementById('player-a');
+    let standbyPlayer = document.getElementById('player-b');
+    const idleFrame = document.getElementById('idle-frame');
+    const ambience = document.getElementById('ambience');
+    const hitboxWake = document.getElementById('hitbox-wake');
+    const preWakeText = document.getElementById('pre-wake-text');
+
+    let woken = false;
+    let phoneOn = false;
+    let isIdle = false;
+    let playToken = 0;
+
+    const clipUrl = (n) => `assets/${n}.mp4`;
+
+    ['assets/01-poster.jpg', 'assets/01-lastframe.jpg', 'assets/11-lastframe.jpg'].forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+
+    function pick(a, b) {
+      return Math.random() < 0.5 ? a : b;
+    }
+
+    function pickWeighted(entries) {
+      const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+      let r = Math.random() * total;
+      for (const [value, weight] of entries) {
+        if (r < weight) return value;
+        r -= weight;
+      }
+      return entries[entries.length - 1][0];
+    }
+
+    function setIdleFrame(src) {
+      activePlayer.classList.add('layer-hidden');
+      activePlayer.pause();
+      idleFrame.src = src;
+      idleFrame.classList.remove('layer-hidden');
+    }
+
+    function enterIdle() {
+      isIdle = true;
+      if (phoneOn) {
+        setIdleFrame('assets/11-lastframe.jpg');
+      } else {
+        setIdleFrame('assets/01-lastframe.jpg');
+      }
+      ambience.currentTime = 0;
+      ambience.play().catch(() => { });
+    }
+
+    const CLIP_VOLUMES = {
+      '17-smack-1': 0.5,
+      '18-smack-2': 0.5,
+    };
+
+    function preload(clipName, token) {
+      return new Promise((resolve) => {
+        function onReady() {
+          standbyPlayer.removeEventListener('canplay', onReady);
+          if (token === playToken) resolve();
+        }
+        standbyPlayer.addEventListener('canplay', onReady);
+        standbyPlayer.src = clipUrl(clipName);
+        standbyPlayer.muted = false;
+        standbyPlayer.volume = CLIP_VOLUMES[clipName] ?? 1;
+        standbyPlayer.load();
+      });
+    }
+
+    function reveal(token) {
+      if (token !== playToken) return;
+      idleFrame.classList.add('layer-hidden');
+      activePlayer.classList.add('layer-hidden');
+      activePlayer.pause();
+      standbyPlayer.classList.remove('layer-hidden');
+      standbyPlayer.currentTime = 0;
+      standbyPlayer.play();
+      [activePlayer, standbyPlayer] = [standbyPlayer, activePlayer];
+    }
+
+    async function playSequence(clips, onDone) {
+      isIdle = false;
+      const token = ++playToken;
+      ambience.pause();
+
+      for (const clip of clips) {
+        await preload(clip, token);
+        if (token !== playToken) return;
+        reveal(token);
+
+        await new Promise((resolve) => {
+          function onEnded() {
+            activePlayer.removeEventListener('ended', onEnded);
+            resolve();
+          }
+          activePlayer.addEventListener('ended', onEnded);
+        });
+        if (token !== playToken) return;
+      }
+
+      onDone();
+    }
+
+    const VOICE_CLIPS = [
+      ['12-phone-no', 40],
+      ['13-phone-yes', 40],
+      ['14-phone-laugh', 10],
+      ['15-phone-blegh', 10],
+    ];
+    const NOISE_RATIO = 1.25;
+    const SILENCE_RATIO = 1.4;
+    const MIN_FLOOR = 0.005;
+    const FLOOR_SMOOTHING = 0.05;
+    const MIN_SPEECH_MS = 300;
+    const MIN_SILENCE_MS = 500;
+
+    let micAnalyser = null;
+    let micData = null;
+
+    let noiseFloor = 0.01;
+
+    let voiceState = 'idle';
+    let speechStartedAt = null;
+    let silenceStartedAt = null;
+
+    const micWarning = document.getElementById('mic-warning');
+    const micMeter = document.getElementById('mic-meter');
+    const micMeterFill = document.getElementById('mic-meter-fill');
+
+    async function ensureMic() {
+      if (micAnalyser) return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        micAnalyser = audioCtx.createAnalyser();
+        micAnalyser.fftSize = 512;
+        source.connect(micAnalyser);
+        micData = new Uint8Array(micAnalyser.fftSize);
+        micWarning.classList.add('hidden');
+        micMeter.classList.remove('hidden');
+        requestAnimationFrame(monitorMic);
+      } catch (err) {
+        micWarning.classList.remove('hidden');
+        micMeter.classList.add('hidden');
+      }
+    }
+
+    function resetVoiceState() {
+      voiceState = 'idle';
+      speechStartedAt = null;
+      silenceStartedAt = null;
+    }
+
+    function updateMeter(rms, noiseThreshold) {
+      const percent = Math.min(100, (rms / (noiseThreshold * 1.5)) * 100);
+      micMeterFill.style.width = `${percent}%`;
+      micMeterFill.classList.toggle('speaking', voiceState === 'speaking');
+    }
+
+    function monitorMic() {
+      requestAnimationFrame(monitorMic);
+      if (!micAnalyser || !phoneOn || !isIdle) {
+        resetVoiceState();
+        return;
+      }
+
+      micAnalyser.getByteTimeDomainData(micData);
+      let sumSquares = 0;
+      for (let i = 0; i < micData.length; i++) {
+        const norm = (micData[i] - 128) / 128;
+        sumSquares += norm * norm;
+      }
+      const rms = Math.sqrt(sumSquares / micData.length);
+      const now = Date.now();
+
+      if (voiceState === 'idle' && speechStartedAt === null) {
+        noiseFloor = noiseFloor + FLOOR_SMOOTHING * (rms - noiseFloor);
+        noiseFloor = Math.max(noiseFloor, MIN_FLOOR);
+      }
+
+      const noiseThreshold = noiseFloor * NOISE_RATIO;
+      const silenceThreshold = noiseFloor * SILENCE_RATIO;
+
+      updateMeter(rms, noiseThreshold);
+
+      if (voiceState === 'idle') {
+        if (rms > noiseThreshold) {
+          if (speechStartedAt === null) {
+            speechStartedAt = now;
+          } else if (now - speechStartedAt > MIN_SPEECH_MS) {
+            voiceState = 'speaking';
+          }
+        } else {
+          speechStartedAt = null;
+        }
+        return;
+      }
+
+      if (rms < silenceThreshold) {
+        if (silenceStartedAt === null) {
+          silenceStartedAt = now;
+        } else if (now - silenceStartedAt > MIN_SILENCE_MS) {
+          resetVoiceState();
+          const target = pickWeighted(VOICE_CLIPS);
+          playSequence([target], () => {
+            enterIdle();
+          });
+        }
+      } else {
+        silenceStartedAt = null;
+      }
+    }
+
+    const bodyMap = {
+      food: '02-food',
+      burp: '03-burp',
+      drink: '04-drink',
+      'left-hand': '05-left-hand',
+      'right-hand': '06-right-hand',
+      'left-leg': '07-left-leg',
+      'right-leg': '08-right-leg',
+      gut: () => pick('09-gut-punch-1', '10-gut-punch-2'),
+      head: () => pick('17-smack-1', '18-smack-2'),
+    };
+
+    function setControlsEnabled(enabled) {
+      document.querySelectorAll('[data-action]').forEach((el) => {
+        if (el.dataset.action === 'wake') return;
+        if (el.tagName === 'BUTTON') {
+          el.disabled = !enabled;
+          el.classList.toggle('hidden', !enabled);
+        } else {
+          el.classList.toggle('disabled', !enabled);
+        }
+      });
+    }
+
+    function handleAction(action) {
+      if (action === 'wake') {
+        if (woken) return;
+        woken = true;
+        hitboxWake.classList.add('disabled');
+        preWakeText.classList.add('hidden');
+        playSequence(['01-book-down'], () => {
+          setControlsEnabled(true);
+          enterIdle();
+        });
+        return;
+      }
+
+      if (action === 'phone') {
+        const turningOn = !phoneOn;
+        if (turningOn) ensureMic();
+        const target = turningOn ? '11-phone-up' : '16-phone-down';
+        playSequence([target], () => {
+          phoneOn = turningOn;
+          enterIdle();
+        });
+        return;
+      }
+
+      const entry = bodyMap[action];
+      if (!entry) return;
+      const target = typeof entry === 'function' ? entry() : entry;
+
+      playSequence([target], () => {
+        phoneOn = false;
+        enterIdle();
+      });
+    }
+
+    document.querySelectorAll('[data-action]').forEach((el) => {
+      el.addEventListener('click', () => handleAction(el.dataset.action));
+    });
+
+    setControlsEnabled(false);
+  </script>
+</body>
+
+</html>
